@@ -3,16 +3,16 @@
 import { useEffect, useState } from "react"
 
 export default function AnimatedChart({ data, title, type = "bar" }) {
-  const [animatedData, setAnimatedData] = useState(data.map(() => 0))
+  const [animatedData, setAnimatedData] = useState(data.map(({ value }) => 0))
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      setAnimatedData(data)
+      setAnimatedData(data.map(({ value }) => value))
     }, 500)
     return () => clearTimeout(timer)
   }, [data])
 
-  const maxValue = Math.max(...data)
+  const maxValue = Math.max(...data.map(({ value }) => value))
 
   if (type === "radial") {
     return (
@@ -54,9 +54,9 @@ export default function AnimatedChart({ data, title, type = "bar" }) {
     <div className="chart-container">
       <h3 className="text-lg font-semibold mb-4">{title}</h3>
       <div className="space-y-3">
-        {data.map((value, index) => (
+        {data.map(({ name, value }, index) => (
           <div key={index} className="flex items-center space-x-3">
-            <div className="w-20 text-sm text-gray-400">Item {index + 1}</div>
+            <div className="w-20 text-sm text-gray-400">{name}</div>
             <div className="flex-1 bg-gray-800 rounded-full h-3 overflow-hidden">
               <div
                 className="h-full bg-gradient-to-r from-green-500 to-blue-500 rounded-full transition-all duration-2000 ease-out"
@@ -70,3 +70,4 @@ export default function AnimatedChart({ data, title, type = "bar" }) {
     </div>
   )
 }
+

@@ -67,10 +67,16 @@ export default function EvaluatePage() {
       await new Promise((resolve) => setTimeout(resolve, 1000))
 
       // Step 2: zk-KYC Status
+      // For demo: send only didOrWallet, for real: send all World ID params if available
+      let zkKycPayload = { didOrWallet: input }
+      // If you have real World ID proof data, replace the below with actual values
+      // zkKycPayload = {
+      //   merkle_root: ..., nullifier_hash: ..., proof: ..., credential_type: ..., action: ...
+      // }
       const zkKycResponse = await fetch("/api/zk-kyc-status", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ didOrWallet: input }),
+        body: JSON.stringify(zkKycPayload),
       })
       const zkKycData = await zkKycResponse.json()
 
@@ -161,21 +167,15 @@ export default function EvaluatePage() {
 
   const handleExportPDF = async () => {
     if (!results) return
-    const success = await exportToPDF(results, input)
-    if (success) {
-      alert("Report exported successfully!")
-    } else {
-      alert("Export failed. Please try again.")
-    }
+    await exportToPDF(results, input)
   }
 
   const handleShareReport = async () => {
     if (!results) return
     try {
       await shareReport(results, input)
-      alert("Report shared successfully!")
-    } catch (error) {
-      alert("Share failed. Link copied to clipboard instead.")
+    } catch (err) {
+      console.error(err)
     }
   }
 
@@ -202,7 +202,7 @@ export default function EvaluatePage() {
                     className="glass-button-secondary px-4 py-2 rounded-xl flex items-center space-x-2 font-medium"
                   >
                     <Download className="h-4 w-4" />
-                    <span>Export PDF</span>
+                    <span>Export</span>
                   </button>
                   <button
                     onClick={handleShareReport}
@@ -278,36 +278,34 @@ export default function EvaluatePage() {
               ].map(({ key, label, icon: Icon }, index) => (
                 <div key={key} className="flex items-center space-x-4 p-4 glass-card rounded-2xl">
                   <div
-                    className={`p-2 rounded-xl ${
-                      loadingStates[key]
+                    className={`p-2 rounded-xl ${loadingStates[key]
+                      ? "glass-button"
+                      : Object.keys(loadingStates)
+                        .slice(0, index)
+                        .every((k) => !loadingStates[k])
                         ? "glass-button"
-                        : Object.keys(loadingStates)
-                              .slice(0, index)
-                              .every((k) => !loadingStates[k])
-                          ? "glass-button"
-                          : "bg-gray-700"
-                    }`}
+                        : "bg-gray-700"
+                      }`}
                   >
                     {loadingStates[key] ? (
                       <Loader2 className="h-5 w-5 animate-spin text-blue-400" />
                     ) : Object.keys(loadingStates)
-                        .slice(0, index)
-                        .every((k) => !loadingStates[k]) ? (
+                      .slice(0, index)
+                      .every((k) => !loadingStates[k]) ? (
                       <CheckCircle className="h-5 w-5 text-green-400" />
                     ) : (
                       <Icon className="h-5 w-5 text-gray-500" />
                     )}
                   </div>
                   <span
-                    className={`font-medium ${
-                      loadingStates[key]
-                        ? "text-blue-400"
-                        : Object.keys(loadingStates)
-                              .slice(0, index)
-                              .every((k) => !loadingStates[k])
-                          ? "text-green-400"
-                          : "text-gray-500"
-                    }`}
+                    className={`font-medium ${loadingStates[key]
+                      ? "text-blue-400"
+                      : Object.keys(loadingStates)
+                        .slice(0, index)
+                        .every((k) => !loadingStates[k])
+                        ? "text-green-400"
+                        : "text-gray-500"
+                      }`}
                   >
                     {label}
                   </span>
@@ -328,13 +326,12 @@ export default function EvaluatePage() {
               </div>
               <div className="flex justify-center items-center space-x-8 flex-wrap gap-4">
                 <div
-                  className={`px-6 py-3 rounded-2xl text-sm font-bold glass-card ${
-                    results.final.sybilRisk === "Low"
-                      ? "bg-green-500/20 text-green-400 border-green-500/30"
-                      : results.final.sybilRisk === "Medium"
-                        ? "bg-yellow-500/20 text-yellow-400 border-yellow-500/30"
-                        : "bg-red-500/20 text-red-400 border-red-500/30"
-                  }`}
+                  className={`px-6 py-3 rounded-2xl text-sm font-bold glass-card ${results.final.sybilRisk === "Low"
+                    ? "bg-green-500/20 text-green-400 border-green-500/30"
+                    : results.final.sybilRisk === "Medium"
+                      ? "bg-yellow-500/20 text-yellow-400 border-yellow-500/30"
+                      : "bg-red-500/20 text-red-400 border-red-500/30"
+                    }`}
                 >
                   Sybil Risk: {results.final.sybilRisk}
                 </div>
@@ -390,7 +387,7 @@ export default function EvaluatePage() {
                   >
                     {results.zkKyc.verified ? "✓ Verified" : "✗ Not Verified"}
                   </div>
-                  <AnimatedChart data={[results.zkKyc.score]} title="Verification Score" type="radial" />
+                  <AnimatedChart data={[{ value: results.zkKyc.score }]} title="Verification Score" type="radial" />
                 </div>
               </div>
             </div>
@@ -406,7 +403,10 @@ export default function EvaluatePage() {
                   <h3 className="text-xl font-bold">GitHub Activity</h3>
                 </div>
                 <AnimatedChart
-                  data={[results.github.contributions, results.github.repos * 10]}
+                  data={[
+                    { name: "Push Events", value: results.github.pushEvents },
+                    { name: "Pull Events", value: results.github.pullEvents }
+                  ]}
                   title="Development Activity"
                 />
                 <div className="grid grid-cols-2 gap-4 mt-6">
@@ -429,7 +429,7 @@ export default function EvaluatePage() {
                   </div>
                   <h3 className="text-xl font-bold">Onchain Activity</h3>
                 </div>
-                <AnimatedChart data={[results.onchain.score]} title="Activity Score" type="radial" />
+                <AnimatedChart data={[{ value: results.onchain.score }]} title="Activity Score" type="radial" />
                 <div className="grid grid-cols-2 gap-4 mt-6">
                   <div className="text-center p-4 glass-card rounded-2xl">
                     <div className="text-2xl font-bold text-blue-400">{results.onchain.transactions}</div>
